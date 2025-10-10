@@ -109,17 +109,44 @@ app.get(['/express', '/express/*'], requireAuth, (req, res, next) => {
   
   res.sendFile('index.html', options, (err) => {
     if (err) {
-      console.error('[Express] Error sending file:', err);
       next(err);
     }
   });
 });
 
-// Serve static assets for both apps (protected by auth)
+// Serve AT-T app static files
+app.use('/at-t', requireAuth, express.static(path.join(__dirname, 'AT-T/build'), {
+  etag: true,
+  lastModified: true,
+  maxAge: '1d',
+  setHeaders: (res, path) => {
+    console.log(`[AT-T] Serving file: ${path}`);
+    setContentType(res, path);
+  }
+}));
+
+// Handle client-side routing for AT-T (must be after static file serving)
+app.get(['/at-t', '/at-t/*'], requireAuth, (req, res, next) => {
+  const options = {
+    root: path.join(__dirname, 'AT-T/build'),
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8',
+    }
+  };
+  
+  res.sendFile('index.html', options, (err) => {
+    if (err) {
+      console.error('[AT-T] Error sending file:', err);
+      next(err);
+    }
+  });
+});
+
+// Serve static assets for all apps (protected by auth)
 app.use('/aerosole/assets', requireAuth, express.static(path.join(__dirname, 'AeroSole/dist/assets')));
 app.use('/express/assets', requireAuth, express.static(path.join(__dirname, 'Express/dist/assets')));
 
-// Serve static images and videos for Express app (protected by auth)
+// Serve additional static files for apps (protected by auth)
 app.use('/express/images', requireAuth, express.static(path.join(__dirname, 'Express/dist/images')));
 app.use('/express/videos', requireAuth, express.static(path.join(__dirname, 'Express/dist/videos')));
 
@@ -353,14 +380,19 @@ app.get('/', requireAuth, (req, res) => {
         <p>Please select an application to continue:</p>
         
         <div class="apps">
+          <a href="/at-t" class="app-card">
+            <img src="/at-t/images/ATT_logo_2016.svg" alt="AT&T Logo" class="logo">
+            <h2>AT&T</h2>
+          </a>
+          
           <a href="/aerosole" class="app-card">
             <img src="/aerosole/vite.svg" alt="AeroSole Logo" class="logo">
-            <h2>AeroSole App</h2>
+            <h2>AeroSole</h2>
           </a>
           
           <a href="/express" class="app-card">
-            <img src="/express/vite.svg" alt="Express Logo" class="logo">
-            <h2>Express App</h2>
+            <img src="/express/images/express-logo.svg" alt="Express Logo" class="logo">
+            <h2>Express</h2>
           </a>
         </div>
       </div>
@@ -390,4 +422,5 @@ app.listen(PORT, () => {
   console.log('Available routes:');
   console.log(`- AeroSole App: http://localhost:${PORT}/aerosole`);
   console.log(`- Express App:  http://localhost:${PORT}/express`);
+  console.log(`- AT&T App:     http://localhost:${PORT}/at-t`);
 });
