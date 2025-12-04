@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import session from 'express-session';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,22 @@ const requireAuth = (req, res, next) => {
 
 // Middleware
 app.use(compression());
+
+// Proxy configuration
+app.use('/api/invoke_agent', createProxyMiddleware({
+  target: 'http://localhost:8000',
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/invoke_agent': '/api/invoke_agent'
+  },
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to: ${proxyReq.path}`);
+  },
+  onError: (err, req, res) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Proxy error', details: err.message });
+  }
+}));
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
