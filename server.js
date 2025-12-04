@@ -36,21 +36,33 @@ const requireAuth = (req, res, next) => {
 // Middleware
 app.use(compression());
 
-// Proxy configuration
-app.use('/api/invoke_agent', createProxyMiddleware({
+// Configure proxy for all HTTP methods
+const proxyMiddleware = createProxyMiddleware({
   target: 'http://localhost:8000',
   changeOrigin: true,
   pathRewrite: {
     '^/api/invoke_agent': '/api/invoke_agent'
   },
-  onProxyReq: (proxyReq, req, res) => {
-    console.log(`Proxying request to: ${proxyReq.path}`);
+  logLevel: 'debug',
+  onProxyReq: (proxyReq, req) => {
+    console.log(`Proxying ${req.method} request to: ${proxyReq.path}`);
+    // Ensure content-type is set for POST requests with body
+    if (req.body && !proxyReq.getHeader('content-type')) {
+      proxyReq.setHeader('content-type', 'application/json');
+    }
   },
   onError: (err, req, res) => {
     console.error('Proxy error:', err);
-    res.status(500).json({ error: 'Proxy error', details: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Proxy error', details: err.message });
+    }
   }
-}));
+});
+
+// Apply the proxy to all methods for the /api/invoke_agent endpoint
+app.all('/api/invoke_agent', (req, res, next) => {
+  proxyMiddleware(req, res, next);
+});
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
