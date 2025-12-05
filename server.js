@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import compression from 'compression';
 import helmet from 'helmet';
 import session from 'express-session';
+import { request } from 'http';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -36,36 +37,42 @@ const requireAuth = (req, res, next) => {
 // Middleware
 app.use(compression());
 
-// Configure proxy for all HTTP methods
-const proxyMiddleware = createProxyMiddleware({
-  target: 'http://localhost:8000',
-  changeOrigin: true,
-  pathRewrite: {
-    '^/api/invoke_agent': '/api/invoke_agent'
-  },
-  logLevel: 'debug',
-  onProxyReq: (proxyReq, req) => {
-    console.log(`Proxying ${req.method} request to: ${proxyReq.path}`);
-    // Ensure content-type is set for POST requests with body
-    if (req.body && !proxyReq.getHeader('content-type')) {
-      proxyReq.setHeader('content-type', 'application/json');
+// Forward requests to localhost:8000
+app.all('/api/invoke_agent', (req, res) => {
+  const targetUrl = `http://localhost:8000${req.originalUrl}`;
+  
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+  
+  const options = {
+    hostname: 'localhost',
+    port: 8000,
+    path: req.originalUrl,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: 'localhost:8000'  // Update the host header
     }
-  },
-  onError: (err, req, res) => {
-    console.error('Proxy error:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Proxy error', details: err.message });
-    }
-  }
-});
+  };
 
-// Apply the proxy to all methods for the /api/invoke_agent endpoint
-app.all('/api/invoke_agent', (req, res, next) => {
-  proxyMiddleware(req, res, next);
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Forward the request body if it exists
+  if (req.body && Object.keys(req.body).length > 0) {
+    proxy.write(JSON.stringify(req.body));
+  }
+  
+  proxy.end();
 });
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
 
 // Helper function to set MIME types
 const setContentType = (res, path) => {
