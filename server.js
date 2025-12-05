@@ -36,24 +36,28 @@ const requireAuth = (req, res, next) => {
 
 // Middleware
 app.use(compression());
+app.use(express.json()); // Parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
 // Forward requests to localhost:8000
 app.all('/api/invoke_agent', (req, res) => {
-  const targetUrl = `http://localhost:8000${req.originalUrl}`;
+  const targetUrl = `http://10.22.63.32:8000${req.originalUrl}`;
   
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
   console.log('Request Body:', req.body);
   
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+  
   const options = {
-    hostname: 'localhost',
+    hostname: '10.22.63.32',
     port: 8000,
     path: req.originalUrl,
     method: req.method,
-    headers: {
-      ...req.headers,
-      host: 'localhost:8000'  // Update the host header
-    }
+    headers: forwardedHeaders
   };
 
   const proxy = request(options, (proxyRes) => {
@@ -66,9 +70,20 @@ app.all('/api/invoke_agent', (req, res) => {
     res.status(500).json({ error: 'Failed to forward request', details: err.message });
   });
 
-  // Forward the request body if it exists
-  if (req.body && Object.keys(req.body).length > 0) {
-    proxy.write(JSON.stringify(req.body));
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+    
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
   }
   
   proxy.end();
