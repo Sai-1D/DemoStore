@@ -39,6 +39,57 @@ app.use(compression());
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
+
+// Forward requests to localhost:8001
+app.all('/api/whatsapp_webhook', (req, res) => {
+  const targetUrl = `http://10.22.63.32:8001${req.originalUrl}`;
+  
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+  
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+  
+  const options = {
+    hostname: '10.22.63.32',
+    port: 8001,
+    path: req.originalUrl,
+    method: req.method,
+    headers: forwardedHeaders
+  };
+
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+    
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
+  }
+  
+  proxy.end();
+});
+
 // Forward requests to localhost:8000
 app.all('/api/invoke_agent', (req, res) => {
   const targetUrl = `http://10.22.63.32:8000${req.originalUrl}`;
