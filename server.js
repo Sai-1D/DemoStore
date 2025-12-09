@@ -227,6 +227,17 @@ app.use('/at-t', requireAuth, express.static(path.join(__dirname, 'AT-T/build'),
   }
 }));
 
+// Serve Vans app static files
+app.use('/vans', requireAuth, express.static(path.join(__dirname, 'Vans/dist'), {
+  etag: true,
+  lastModified: true,
+  maxAge: '1d',
+  setHeaders: (res, path) => {
+    console.log(`[Vans] Serving file: ${path}`);
+    setContentType(res, path);
+  }
+}));
+
 // Handle client-side routing for AT-T (must be after static file serving)
 app.get(['/at-t', '/at-t/*'], requireAuth, (req, res, next) => {
   const options = {
@@ -244,9 +255,27 @@ app.get(['/at-t', '/at-t/*'], requireAuth, (req, res, next) => {
   });
 });
 
+// Handle client-side routing for Vans (must be after static file serving)
+app.get(['/vans', '/vans/*'], requireAuth, (req, res, next) => {
+  const options = {
+    root: path.join(__dirname, 'Vans/dist'),
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8',
+    }
+  };
+  
+  res.sendFile('index.html', options, (err) => {
+    if (err) {
+      console.error('[Vans] Error sending file:', err);
+      next(err);
+    }
+  });
+});
+
 // Serve static assets for all apps (protected by auth)
 app.use('/aerosole/assets', requireAuth, express.static(path.join(__dirname, 'AeroSole/dist/assets')));
 app.use('/express/assets', requireAuth, express.static(path.join(__dirname, 'Express/dist/assets')));
+app.use('/vans/assets', requireAuth, express.static(path.join(__dirname, 'Vans/dist/assets')));
 
 // Serve additional static files for apps (protected by auth)
 app.use('/express/images', requireAuth, express.static(path.join(__dirname, 'Express/dist/images')));
@@ -496,6 +525,11 @@ app.get('/', requireAuth, (req, res) => {
             <img src="/express/images/express-logo.svg" alt="Express Logo" class="logo">
             <h2>Express</h2>
           </a>
+          
+          <a href="/vans" class="app-card">
+            <img src="/vans/images/vans-logo.svg" alt="Vans Logo" class="logo">
+            <h2>Vans (Beta) </h2>
+          </a>
         </div>
       </div>
     </body>
@@ -525,4 +559,5 @@ app.listen(PORT, () => {
   console.log(`- AeroSole App: http://localhost:${PORT}/aerosole`);
   console.log(`- Express App:  http://localhost:${PORT}/express`);
   console.log(`- AT&T App:     http://localhost:${PORT}/at-t`);
+  console.log(`- Vans App:     http://localhost:${PORT}/vans`);
 });
