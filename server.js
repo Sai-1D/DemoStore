@@ -18,7 +18,7 @@ app.use(session({
   secret: 'your-secret-key', // Change this to a secure secret in production
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: false, // Set to true if using HTTPS
     httpOnly: true,
     // No maxAge - session ends when browser is closed
@@ -43,16 +43,16 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 // Forward requests to localhost:8001
 app.all('/api/whatsapp_webhook', (req, res) => {
   const targetUrl = `http://10.22.63.32:8001${req.originalUrl}`;
-  
+
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
   console.log('Request Body:', req.body);
-  
+
   // Clean headers for forwarding
   const forwardedHeaders = { ...req.headers };
   delete forwardedHeaders.host;
   delete forwardedHeaders['content-length'];
-  
+
   const options = {
     hostname: '10.22.63.32',
     port: 8001,
@@ -80,29 +80,29 @@ app.all('/api/whatsapp_webhook', (req, res) => {
     } else {
       bodyData = req.body.toString();
     }
-    
+
     if (bodyData) {
       proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
       proxy.write(bodyData);
     }
   }
-  
+
   proxy.end();
 });
 
 // Forward requests to localhost:8000
 app.all('/api/invoke_agent', (req, res) => {
   const targetUrl = `http://10.22.63.32:8000${req.originalUrl}`;
-  
+
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
   console.log('Request Body:', req.body);
-  
+
   // Clean headers for forwarding
   const forwardedHeaders = { ...req.headers };
   delete forwardedHeaders.host;
   delete forwardedHeaders['content-length'];
-  
+
   const options = {
     hostname: '10.22.63.32',
     port: 8000,
@@ -130,13 +130,113 @@ app.all('/api/invoke_agent', (req, res) => {
     } else {
       bodyData = req.body.toString();
     }
-    
+
     if (bodyData) {
       proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
       proxy.write(bodyData);
     }
   }
-  
+
+  proxy.end();
+});
+
+// Forward requests to localhost:3001
+app.use('/fairview', (req, res) => {
+  const targetUrl = `http://localhost:3001${req.originalUrl}`;
+
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+
+  const options = {
+    hostname: 'localhost',
+    port: 3001,
+    path: req.originalUrl,
+    method: req.method,
+    headers: forwardedHeaders
+  };
+
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
+  }
+
+  proxy.end();
+});
+
+// Forward requests to localhost:3002
+app.use('/alo-yoga', (req, res) => {
+  const targetUrl = `http://localhost:3002${req.originalUrl}`;
+
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+
+  const options = {
+    hostname: 'localhost',
+    port: 3002,
+    path: req.originalUrl,
+    method: req.method,
+    headers: forwardedHeaders
+  };
+
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
+  }
+
   proxy.end();
 });
 
@@ -191,7 +291,7 @@ app.get(['/aerosole', '/aerosole/*'], requireAuth, (req, res, next) => {
       'Content-Type': 'text/html; charset=UTF-8',
     }
   };
-  
+
   res.sendFile('index.html', options, (err) => {
     if (err) {
       console.error('[AeroSole] Error sending file:', err);
@@ -208,7 +308,7 @@ app.get(['/express', '/express/*'], requireAuth, (req, res, next) => {
       'Content-Type': 'text/html; charset=UTF-8',
     }
   };
-  
+
   res.sendFile('index.html', options, (err) => {
     if (err) {
       next(err);
@@ -246,7 +346,7 @@ app.get(['/at-t', '/at-t/*'], requireAuth, (req, res, next) => {
       'Content-Type': 'text/html; charset=UTF-8',
     }
   };
-  
+
   res.sendFile('index.html', options, (err) => {
     if (err) {
       console.error('[AT-T] Error sending file:', err);
@@ -263,7 +363,7 @@ app.get(['/vans', '/vans/*'], requireAuth, (req, res, next) => {
       'Content-Type': 'text/html; charset=UTF-8',
     }
   };
-  
+
   res.sendFile('index.html', options, (err) => {
     if (err) {
       console.error('[Vans] Error sending file:', err);
@@ -289,9 +389,9 @@ app.get('/login', (req, res) => {
   if (req.session.authenticated) {
     return res.redirect('/');
   }
-  
+
   const error = req.query.error ? 'Invalid credentials' : '';
-  
+
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -377,7 +477,7 @@ app.get('/login', (req, res) => {
     </body>
     </html>
   `;
-  
+
   res.send(html);
 });
 
@@ -387,41 +487,41 @@ app.use(express.urlencoded({ extended: true }));
 // Handle login form submission (must be before the catch-all route)
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
-  
+
   // Hardcoded credentials (in production, use a database)
   if (username === 'demo@1digitals.com' && password === '1Digitals@123') {
     req.session.authenticated = true;
     // Always redirect to root after login
     return res.redirect('/');
   }
-  
+
   res.redirect('/login?error=1');
 });
 
 // Catch-all route for any other GET requests (must be after all other routes)
 app.get('*', (req, res, next) => {
   // Skip authentication for login page and static files
-  if (req.path === '/login' || 
-      req.path.startsWith('/public/') ||
-      req.path.endsWith('.css') ||
-      req.path.endsWith('.js') ||
-      req.path.endsWith('.svg') ||
-      req.path.endsWith('.png') ||
-      req.path.endsWith('.jpg') ||
-      req.path.endsWith('.jpeg') ||
-      req.path.endsWith('.gif') ||
-      req.path.endsWith('.webp') ||
-      req.path.endsWith('.webm') ||
-      req.path.endsWith('.mp4')) {
+  if (req.path === '/login' ||
+    req.path.startsWith('/public/') ||
+    req.path.endsWith('.css') ||
+    req.path.endsWith('.js') ||
+    req.path.endsWith('.svg') ||
+    req.path.endsWith('.png') ||
+    req.path.endsWith('.jpg') ||
+    req.path.endsWith('.jpeg') ||
+    req.path.endsWith('.gif') ||
+    req.path.endsWith('.webp') ||
+    req.path.endsWith('.webm') ||
+    req.path.endsWith('.mp4')) {
     return next();
   }
-  
+
   // Require authentication for all other routes
   if (!req.session.authenticated) {
     req.session.returnTo = req.originalUrl;
     return res.redirect('/login');
   }
-  
+
   next();
 });
 
@@ -455,45 +555,52 @@ app.get('/', requireAuth, (req, res) => {
           background-color: #f5f5f5;
         }
         .container {
-          text-align: center;
-          max-width: 800px;
-          padding: 2rem;
+          width: 100%;
+          max-width: 1200px;
+          margin: 40px auto;
+          padding: 2.5rem;
           background: white;
-          border-radius: 10px;
-          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          border-radius: 12px;
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
         }
         h1 {
           color: #333;
           margin-bottom: 2rem;
         }
         .apps {
-          display: flex;
-          justify-content: center;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
           gap: 2rem;
           margin-top: 2rem;
         }
         .app-card {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
           padding: 2rem;
-          border: 1px solid #ddd;
-          border-radius: 8px;
+          border-radius: 12px;
           text-decoration: none;
           color: #333;
-          transition: transform 0.2s, box-shadow 0.2s;
-          width: 200px;
+          background: #fafafa;
+          transition: all 0.25s ease;
+          border: 1px solid #eee;
         }
+
         .app-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+          transform: translateY(-6px);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+          background: white;
         }
         .app-card h2 {
           margin-top: 1rem;
           color: #2c3e50;
         }
         .logo {
-          width: 100px;
-          height: 100px;
-          margin: 0 auto;
-          display: block;
+          width: 80px;
+          height: 80px;
+          object-fit: contain;
+          margin-bottom: 1rem;
         }
       </style>
     </head>
@@ -530,12 +637,22 @@ app.get('/', requireAuth, (req, res) => {
             <img src="/vans/images/vans-logo.svg" alt="Vans Logo" class="logo">
             <h2>Vans (Beta) </h2>
           </a>
+
+          <a href="/fairview/chatgpt" class="app-card">
+            <img class="logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAAAAABXZoBIAAAAcElEQVR4AWOQwQMYICQGQEhybEcHGxhgktIM/9HBJyTJv9ST/IsuaYfsWmk0SS8RaQSQwZBEDgA8OjElGfhgQALVWFTQxEEnye0bYGB7jIgM7hACyuEJhEEtCfa5D1ZJGY7lQLDBTAJPopbAkuLxAADmYhrZZIx6lQAAAABJRU5ErkJggg==" alt="Fairview Logo" data-csiid="COmbabGtB92N4-EPxL3V4Q4_2" data-atf="1">
+            <h2>Fairview </h2>
+          </a>
+
+          <a href="/alo-yoga" class="app-card">
+            <img class="logo" src="https://assets.cadillacfairview.com/transform/49cd9a77-9be3-488c-9ddf-4008f576ce79/MKT-Alo-Yoga?io=transform:fill,width:1600&amp;quality=100" alt="Alo-Yoga Logo">
+            <h2>Alo Yoga </h2>
+          </a>
         </div>
       </div>
     </body>
     </html>
   `;
-  
+
   res.send(html);
 });
 
