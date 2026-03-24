@@ -240,6 +240,56 @@ app.use('/alo-yoga', (req, res) => {
   proxy.end();
 });
 
+// Forward requests to localhost:3003 for aeo-audit-tool/api
+app.use('/aeo-audit-tool/api', (req, res) => {
+  const targetUrl = `http://localhost:3003${req.originalUrl}`;
+
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+
+  const options = {
+    hostname: 'localhost',
+    port: 3003,
+    path: req.originalUrl,
+    method: req.method,
+    headers: forwardedHeaders
+  };
+
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
+  }
+
+  proxy.end();
+});
+
 // Helper function to set MIME types
 const setContentType = (res, path) => {
   if (path.endsWith('.js')) {
@@ -367,6 +417,34 @@ app.get(['/vans', '/vans/*'], requireAuth, (req, res, next) => {
   res.sendFile('index.html', options, (err) => {
     if (err) {
       console.error('[Vans] Error sending file:', err);
+      next(err);
+    }
+  });
+});
+
+// Serve AI Auditor app static files
+app.use('/aeo-audit-tool', requireAuth, express.static(path.join(__dirname, 'AI-Auditor/dist'), {
+  etag: true,
+  lastModified: true,
+  maxAge: '1d',
+  setHeaders: (res, path) => {
+    console.log(`[AI Auditor] Serving file: ${path}`);
+    setContentType(res, path);
+  }
+}));
+
+// Handle client-side routing for AI Auditor (must be after static file serving)
+app.get(['/aeo-audit-tool', '/aeo-audit-tool/*'], requireAuth, (req, res, next) => {
+  const options = {
+    root: path.join(__dirname, 'AI-Auditor/dist'),
+    headers: {
+      'Content-Type': 'text/html; charset=UTF-8',
+    }
+  };
+
+  res.sendFile('index.html', options, (err) => {
+    if (err) {
+      console.error('[AI Auditor] Error sending file:', err);
       next(err);
     }
   });
@@ -647,6 +725,11 @@ app.get('/', requireAuth, (req, res) => {
             <img class="logo" src="https://assets.cadillacfairview.com/transform/49cd9a77-9be3-488c-9ddf-4008f576ce79/MKT-Alo-Yoga?io=transform:fill,width:1600&amp;quality=100" alt="Alo-Yoga Logo">
             <h2>Alo Yoga </h2>
           </a>
+
+          <a href="/aeo-audit-tool" class="app-card">
+            <div style="font-size: 5rem; line-height: 80px; margin-bottom: 1rem;">🤖</div>
+            <h2>AI Auditor</h2>
+          </a>
         </div>
       </div>
     </body>
@@ -677,4 +760,5 @@ app.listen(PORT, () => {
   console.log(`- Express App:  http://localhost:${PORT}/express`);
   console.log(`- AT&T App:     http://localhost:${PORT}/at-t`);
   console.log(`- Vans App:     http://localhost:${PORT}/vans`);
+  console.log(`- AI Auditor:   http://localhost:${PORT}/aeo-audit-tool`);
 });
