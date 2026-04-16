@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Build folders
+AI-Auditor/
+
 # Environment variables
 .env
 .env.local

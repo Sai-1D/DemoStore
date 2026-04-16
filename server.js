@@ -154,7 +154,7 @@ app.use('/fairview', (req, res) => {
   delete forwardedHeaders['content-length'];
 
   const options = {
-    hostname: 'localhost',
+    hostname: '10.22.63.32',
     port: 3001,
     path: req.originalUrl,
     method: req.method,
@@ -204,7 +204,7 @@ app.use('/alo-yoga', (req, res) => {
   delete forwardedHeaders['content-length'];
 
   const options = {
-    hostname: 'localhost',
+    hostname: '10.22.63.32',
     port: 3002,
     path: req.originalUrl,
     method: req.method,
@@ -254,7 +254,7 @@ app.use('/aeo-audit-tool/api', (req, res) => {
   delete forwardedHeaders['content-length'];
 
   const options = {
-    hostname: 'localhost',
+    hostname: '10.22.63.32',
     port: 3003,
     path: req.originalUrl,
     method: req.method,
