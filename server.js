@@ -41,8 +41,8 @@ app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
 
 // Forward requests to localhost:8001
-app.all('/api/whatsapp_webhook', (req, res) => {
-  const targetUrl = `http://10.22.63.32:8001${req.originalUrl}`;
+app.use('/thcm-agentic-poc', (req, res) => {
+  const targetUrl = `http://localhost:8001${req.originalUrl}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
