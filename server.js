@@ -579,7 +579,8 @@ app.post('/login', (req, res) => {
 // Catch-all route for any other GET requests (must be after all other routes)
 app.get('*', (req, res, next) => {
   // Skip authentication for login page and static files
-  if (req.path === '/login' ||
+  if (req.path.startsWith('/thcm-agentic-poc') ||
+    req.path === '/login' ||
     req.path.startsWith('/public/') ||
     req.path.endsWith('.css') ||
     req.path.endsWith('.js') ||
