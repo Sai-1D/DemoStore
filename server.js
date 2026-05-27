@@ -240,6 +240,58 @@ app.use('/alo-yoga', (req, res) => {
   proxy.end();
 });
 
+// Forward requests to localhost:5050 (strip /bristlecone-dashboard — backend has no app context)
+const BRISTLECONE_DASHBOARD_PREFIX = '/bristlecone-dashboard';
+app.use(BRISTLECONE_DASHBOARD_PREFIX, (req, res) => {
+  const forwardPath = req.url || '/';
+  const targetUrl = `http://localhost:5050${forwardPath}`;
+
+  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
+  console.log('Request Headers:', req.headers);
+  console.log('Request Body:', req.body);
+
+  // Clean headers for forwarding
+  const forwardedHeaders = { ...req.headers };
+  delete forwardedHeaders.host;
+  delete forwardedHeaders['content-length'];
+
+  const options = {
+    hostname: '10.22.63.32',
+    port: 5050,
+    path: forwardPath,
+    method: req.method,
+    headers: forwardedHeaders
+  };
+
+  const proxy = request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxy.on('error', (err) => {
+    console.error('Proxy error:', err);
+    res.status(500).json({ error: 'Failed to forward request', details: err.message });
+  });
+
+  // Stream the request body if it exists
+  if (req.body) {
+    let bodyData;
+    if (typeof req.body === 'object') {
+      bodyData = JSON.stringify(req.body);
+      proxy.setHeader('Content-Type', 'application/json');
+    } else {
+      bodyData = req.body.toString();
+    }
+
+    if (bodyData) {
+      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxy.write(bodyData);
+    }
+  }
+
+  proxy.end();
+});
+
 // Forward requests to localhost:3003 for aeo-audit-tool/api
 app.use('/aeo-audit-tool/api', (req, res) => {
   const targetUrl = `http://localhost:3003${req.originalUrl}`;
@@ -580,6 +632,7 @@ app.post('/login', (req, res) => {
 app.get('*', (req, res, next) => {
   // Skip authentication for login page and static files
   if (req.path.startsWith('/thcm-agentic-poc') ||
+    req.path.startsWith('/bristlecone-dashboard') ||
     req.path === '/login' ||
     req.path.startsWith('/public/') ||
     req.path.endsWith('.css') ||
@@ -731,6 +784,17 @@ app.get('/', requireAuth, (req, res) => {
             <div style="font-size: 5rem; line-height: 80px; margin-bottom: 1rem;">🤖</div>
             <h2>AI Auditor</h2>
           </a>
+
+          <a href="/bristlecone-dashboard" class="app-card">
+            <svg class="logo" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="8" y="44" width="18" height="28" rx="3" fill="#2e7d32"/>
+              <rect x="31" y="28" width="18" height="44" rx="3" fill="#388e3c"/>
+              <rect x="54" y="12" width="18" height="60" rx="3" fill="#43a047"/>
+              <path d="M12 38 L28 22 L44 30 L68 8" stroke="#1b5e20" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="68" cy="8" r="5" fill="#1b5e20"/>
+            </svg>
+            <h2>Bristlecone Dashboard</h2>
+          </a>
         </div>
       </div>
     </body>
@@ -762,4 +826,5 @@ app.listen(PORT, () => {
   console.log(`- AT&T App:     http://localhost:${PORT}/at-t`);
   console.log(`- Vans App:     http://localhost:${PORT}/vans`);
   console.log(`- AI Auditor:   http://localhost:${PORT}/aeo-audit-tool`);
+  console.log(`- Bristlecone:  http://localhost:${PORT}/bristlecone-dashboard`);
 });
