@@ -240,11 +240,9 @@ app.use('/alo-yoga', (req, res) => {
   proxy.end();
 });
 
-// Bristlecone Dashboard (Vite :5173, API proxied by Vite → :4000) — keep /bristlecone-dashboard path
-const BRISTLECONE_DASHBOARD_PREFIX = '/bristlecone-dashboard';
-app.use(BRISTLECONE_DASHBOARD_PREFIX, (req, res) => {
-  const forwardPath = req.originalUrl;
-  const targetUrl = `http://localhost:5173${forwardPath}`;
+// Bristlecone Dashboard → Vite dev server (proxies /bristlecone-dashboard/api → :4000)
+app.use('/bristlecone-dashboard', (req, res) => {
+  const targetUrl = `http://localhost:5173${req.originalUrl}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
@@ -258,7 +256,7 @@ app.use(BRISTLECONE_DASHBOARD_PREFIX, (req, res) => {
   const options = {
     hostname: '10.22.63.32',
     port: 5173,
-    path: forwardPath,
+    path: req.originalUrl,
     method: req.method,
     headers: forwardedHeaders
   };
@@ -785,7 +783,7 @@ app.get('/', requireAuth, (req, res) => {
             <h2>AI Auditor</h2>
           </a>
 
-          <a href="/bristlecone-dashboard" class="app-card">
+          <a href="/bristlecone-dashboard/" class="app-card">
             <svg class="logo" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
               <rect x="8" y="44" width="18" height="28" rx="3" fill="#2e7d32"/>
               <rect x="31" y="28" width="18" height="44" rx="3" fill="#388e3c"/>
@@ -826,5 +824,5 @@ app.listen(PORT, () => {
   console.log(`- AT&T App:     http://localhost:${PORT}/at-t`);
   console.log(`- Vans App:     http://localhost:${PORT}/vans`);
   console.log(`- AI Auditor:   http://localhost:${PORT}/aeo-audit-tool`);
-  console.log(`- Bristlecone:  http://localhost:${PORT}/bristlecone-dashboard`);
+  console.log(`- Bristlecone:  http://localhost:${PORT}/bristlecone-dashboard/`);
 });
