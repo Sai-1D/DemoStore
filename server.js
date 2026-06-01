@@ -13,6 +13,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Bristlecone Vite dev server — localhost locally; set BRISTLECONE_VITE_HOST=10.22.63.32 on VM
+const BRISTLECONE_VITE_HOST = '10.22.63.32';
+const BRISTLECONE_VITE_PORT = 5173;
+const BRISTLECONE_VITE_TARGET = `http://${BRISTLECONE_VITE_HOST}:${BRISTLECONE_VITE_PORT}`;
+const BRISTLECONE_PREFIX = '/bristlecone-dashboard';
+
 // Session configuration
 app.use(session({
   secret: 'your-secret-key', // Change this to a secure secret in production
@@ -35,7 +41,14 @@ const requireAuth = (req, res, next) => {
 };
 
 // Middleware
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers.upgrade?.toLowerCase() === 'websocket') {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+}));
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
@@ -206,56 +219,6 @@ app.use('/alo-yoga', (req, res) => {
   const options = {
     hostname: '10.22.63.32',
     port: 3002,
-    path: req.originalUrl,
-    method: req.method,
-    headers: forwardedHeaders
-  };
-
-  const proxy = request(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode, proxyRes.headers);
-    proxyRes.pipe(res, { end: true });
-  });
-
-  proxy.on('error', (err) => {
-    console.error('Proxy error:', err);
-    res.status(500).json({ error: 'Failed to forward request', details: err.message });
-  });
-
-  // Stream the request body if it exists
-  if (req.body) {
-    let bodyData;
-    if (typeof req.body === 'object') {
-      bodyData = JSON.stringify(req.body);
-      proxy.setHeader('Content-Type', 'application/json');
-    } else {
-      bodyData = req.body.toString();
-    }
-
-    if (bodyData) {
-      proxy.setHeader('Content-Length', Buffer.byteLength(bodyData));
-      proxy.write(bodyData);
-    }
-  }
-
-  proxy.end();
-});
-
-// Bristlecone Dashboard → Vite dev server (proxies /bristlecone-dashboard/api → :4000)
-app.use('/bristlecone-dashboard', (req, res) => {
-  const targetUrl = `http://localhost:5173${req.originalUrl}`;
-
-  console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
-  console.log('Request Headers:', req.headers);
-  console.log('Request Body:', req.body);
-
-  // Clean headers for forwarding
-  const forwardedHeaders = { ...req.headers };
-  delete forwardedHeaders.host;
-  delete forwardedHeaders['content-length'];
-
-  const options = {
-    hostname: '10.22.63.32',
-    port: 5173,
     path: req.originalUrl,
     method: req.method,
     headers: forwardedHeaders
@@ -619,18 +582,55 @@ app.post('/login', (req, res) => {
   // Hardcoded credentials (in production, use a database)
   if (username === 'demo@1digitals.com' && password === '1Digitals@123') {
     req.session.authenticated = true;
-    // Always redirect to root after login
-    return res.redirect('/');
+    const returnTo = req.session.returnTo;
+    delete req.session.returnTo;
+    return res.redirect(returnTo || '/');
   }
 
   res.redirect('/login?error=1');
+});
+
+// Bristlecone Dashboard → Vite (HTTP after login; WebSocket only for HMR paths)
+const bristleconeProxy = createProxyMiddleware({
+  target: BRISTLECONE_VITE_TARGET,
+  changeOrigin: true,
+  ws: true,
+  on: {
+    proxyReq: (_proxyReq, req) => {
+      console.log(
+        `[${new Date().toISOString()}] Bristlecone proxy ${req.method} → ${BRISTLECONE_VITE_TARGET}${req.originalUrl}`,
+      );
+    },
+    error: (err, req, res) => {
+      console.error('Bristlecone proxy error:', err);
+      if (res.writeHead) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to forward request', details: err.message }));
+      }
+    },
+  },
+});
+
+// Only redirect when URL has no trailing slash (app.get would loop on .../ with strict routing off)
+const bristleconeTrailingSlash = (req, res, next) => {
+  const pathOnly = req.originalUrl.split('?')[0];
+  if (pathOnly === BRISTLECONE_PREFIX) {
+    const query = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    return res.redirect(301, `${BRISTLECONE_PREFIX}/${query}`);
+  }
+  next();
+};
+
+app.use(BRISTLECONE_PREFIX, requireAuth, bristleconeTrailingSlash, (req, res, next) => {
+  // Express strips the /bristlecone-dashboard prefix from req.url; Vite expects the full path
+  req.url = req.originalUrl;
+  bristleconeProxy(req, res, next);
 });
 
 // Catch-all route for any other GET requests (must be after all other routes)
 app.get('*', (req, res, next) => {
   // Skip authentication for login page and static files
   if (req.path.startsWith('/thcm-agentic-poc') ||
-    req.path.startsWith('/bristlecone-dashboard') ||
     req.path === '/login' ||
     req.path.startsWith('/public/') ||
     req.path.endsWith('.css') ||
@@ -816,7 +816,7 @@ app.use((err, req, res, next) => {
   `);
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   console.log('Available routes:');
   console.log(`- AeroSole App: http://localhost:${PORT}/aerosole`);
@@ -825,4 +825,13 @@ app.listen(PORT, () => {
   console.log(`- Vans App:     http://localhost:${PORT}/vans`);
   console.log(`- AI Auditor:   http://localhost:${PORT}/aeo-audit-tool`);
   console.log(`- Bristlecone:  http://localhost:${PORT}/bristlecone-dashboard/`);
+  console.log(`  (Vite proxy target: ${BRISTLECONE_VITE_TARGET})`);
+});
+
+server.on('upgrade', (req, socket, head) => {
+  if (req.url?.startsWith(BRISTLECONE_PREFIX)) {
+    bristleconeProxy.upgrade(req, socket, head);
+  } else {
+    socket.destroy();
+  }
 });
