@@ -240,11 +240,11 @@ app.use('/alo-yoga', (req, res) => {
   proxy.end();
 });
 
-// Forward requests to localhost:5050 (strip /bristlecone-dashboard — backend has no app context)
+// Bristlecone Dashboard (Vite :5173, API proxied by Vite → :4000) — keep /bristlecone-dashboard path
 const BRISTLECONE_DASHBOARD_PREFIX = '/bristlecone-dashboard';
 app.use(BRISTLECONE_DASHBOARD_PREFIX, (req, res) => {
-  const forwardPath = req.url || '/';
-  const targetUrl = `http://localhost:5050${forwardPath}`;
+  const forwardPath = req.originalUrl;
+  const targetUrl = `http://localhost:5173${forwardPath}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
   console.log('Request Headers:', req.headers);
@@ -257,7 +257,7 @@ app.use(BRISTLECONE_DASHBOARD_PREFIX, (req, res) => {
 
   const options = {
     hostname: '10.22.63.32',
-    port: 5050,
+    port: 5173,
     path: forwardPath,
     method: req.method,
     headers: forwardedHeaders
