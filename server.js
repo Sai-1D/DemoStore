@@ -14,7 +14,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Bristlecone Vite dev server — localhost locally; set BRISTLECONE_VITE_HOST=10.22.63.32 on VM
-const BRISTLECONE_VITE_HOST = '10.22.63.32';
+const BRISTLECONE_VITE_HOST = 'localhost';
 const BRISTLECONE_VITE_PORT = 5173;
 const BRISTLECONE_VITE_TARGET = `http://${BRISTLECONE_VITE_HOST}:${BRISTLECONE_VITE_PORT}`;
 const BRISTLECONE_PREFIX = '/bristlecone-dashboard';
