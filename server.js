@@ -522,6 +522,13 @@ app.use('/vans/assets', requireAuth, express.static(path.join(__dirname, 'Vans/d
 app.use('/express/images', requireAuth, express.static(path.join(__dirname, 'Express/dist/images')));
 app.use('/express/videos', requireAuth, express.static(path.join(__dirname, 'Express/dist/videos')));
 
+// Handle favicon requests separately (before any auth check) so the browser's
+// automatic /favicon.ico request doesn't overwrite session.returnTo and
+// redirect users to a 404 after login. 204 = handled, no content.
+app.get('/favicon.ico', (req, res) => {
+  res.sendStatus(204);
+});
+
 // Serve static files from root (like favicon.ico, etc.) - no auth needed
 app.use(express.static('public'));
 
