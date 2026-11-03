@@ -154,7 +154,7 @@ app.all('/api/invoke_agent', (req, res) => {
 });
 
 // Forward requests to localhost:3001
-app.use('/fairview', (req, res) => {
+app.use('/fairview', requireAuth, (req, res) => {
   const targetUrl = `http://localhost:3001${req.originalUrl}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
@@ -204,7 +204,7 @@ app.use('/fairview', (req, res) => {
 });
 
 // Forward requests to localhost:3002
-app.use('/alo-yoga', (req, res) => {
+app.use('/alo-yoga', requireAuth, (req, res) => {
   const targetUrl = `http://localhost:3002${req.originalUrl}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
@@ -304,7 +304,7 @@ app.use('/aeo-audit-tool/api', (req, res) => {
 });
 
 // Forward requests to localhost:3004 (Nutella AI Commerce, docker compose; the app is served under /nutella)
-app.use('/nutella', (req, res) => {
+app.use('/nutella', requireAuth, (req, res) => {
   const targetUrl = `http://localhost:3004${req.originalUrl}`;
 
   console.log(`[${new Date().toISOString()}] Forwarding ${req.method} request to: ${targetUrl}`);
@@ -317,7 +317,7 @@ app.use('/nutella', (req, res) => {
   delete forwardedHeaders['content-length'];
 
   const options = {
-    hostname: '10.22.63.32',
+    hostname: '127.0.0.1',
     port: 3004,
     path: req.originalUrl,
     method: req.method,
